@@ -6,7 +6,9 @@ Repository for centralising GitHub Actions reusable workflows for OpenEuropa com
 
 ### Drupal CI (`drupal-ci.yml`)
 
-Reusable workflow for Drupal modules. Includes Docker image caching, Drupal core matrix testing, and support for PHPUnit and Behat tests.
+Reusable workflow for Drupal modules. Includes Docker image caching, Drupal core matrix testing, Composer patch compatibility checks, and support for PHPUnit and Behat tests.
+
+Before the automated-test matrix starts, the workflow checks whether the root package declares both `cweagans/composer-patches` and non-empty root patches. When it does, a single preflight job runs `composer install` with Composer Patches 1.x and 2.x to verify that every patched package can be installed and patched. Root runtime requirements and patched development requirements are included; unrelated development requirements are excluded. No tests are duplicated. Projects without the plugin or without root patches skip the installation steps and continue with the regular test matrix.
 
 #### Inputs
 
