@@ -28,6 +28,12 @@ jobs:
   composer-patches-compatibility:
     name: Composer Patches compatibility
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        composer_patches_version:
+          - "^1.7"
+          - "2.0.0 as 1.7.0"
     steps:
       - name: Clone repository
         uses: actions/checkout@v6
@@ -50,44 +56,20 @@ jobs:
         if: steps.composer-patches.outputs.required == 'true'
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.3"
+          php-version: ${{ fromJson(inputs.php_versions)[0] }}
           tools: composer:v2
 
-      - name: Validate root patches with Composer Patches 1.x and 2.x
+      - name: Select Composer Patches version
         if: steps.composer-patches.outputs.required == 'true'
-        shell: bash
+        run: |
+          composer require --no-update "cweagans/composer-patches:${{ matrix.composer_patches_version }}"
+          composer config --json extra.composer-exit-on-patch-failure true
+
+      - name: Install dependencies
+        if: steps.composer-patches.outputs.required == 'true'
+        run: composer install --no-scripts --ansi --no-progress --no-interaction
         env:
           COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
-        run: |
-          for composer_patches_version in "^1.7" "^2.0"; do
-            test_directory="$RUNNER_TEMP/composer-patches-${composer_patches_version//[^0-9]/}"
-            mkdir -p "$test_directory"
-
-            jq --arg composer_patches_version "$composer_patches_version" '
-              . as $root
-              | (($root.extra.patches // {}) | keys) as $patched_packages
-              | .require = (
-                  ($root.require // {})
-                  | ."cweagans/composer-patches" = $composer_patches_version
-                  | reduce $patched_packages[] as $package (.;
-                      .[$package] = (
-                        $root.require[$package]
-                        // $root."require-dev"[$package]
-                        // "*"
-                      )
-                    )
-                )
-              | del(."require-dev", .autoload, ."autoload-dev", .scripts)
-              | .extra."composer-exit-on-patch-failure" = true
-            ' composer.json > "$test_directory/composer.json"
-
-            echo "Validating patches with cweagans/composer-patches $composer_patches_version"
-            composer --working-dir="$test_directory" install --no-scripts --ansi --no-progress --no-interaction
-
-            while IFS= read -r patched_package; do
-              composer --working-dir="$test_directory" show "$patched_package" > /dev/null
-            done < <(jq -r '.extra.patches | keys[]' composer.json)
-          done
 
   automated-tests:
     needs: [composer-patches-compatibility]
