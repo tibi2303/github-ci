@@ -50,6 +50,10 @@ jobs:
             echo "required=true" >> "$GITHUB_OUTPUT"
           else
             echo "required=false" >> "$GITHUB_OUTPUT"
+            message="Composer Patches compatibility check skipped: the package or root patches were not found."
+            echo "::notice::$message"
+            echo "### Composer Patches compatibility" >> "$GITHUB_STEP_SUMMARY"
+            echo "$message" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Set up PHP
@@ -72,7 +76,6 @@ jobs:
           COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
 
   automated-tests:
-    needs: [composer-patches-compatibility]
     runs-on: ubuntu-latest
     strategy:
       matrix:
